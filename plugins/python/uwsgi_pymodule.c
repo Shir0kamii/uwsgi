@@ -2069,6 +2069,105 @@ PyObject *py_uwsgi_spooler_pids(PyObject * self, PyObject * args) {
     return ret;
 }
 
+PyObject *py_uwsgi_spooler_get_task(PyObject * self, PyObject * args) {
+
+        char spool_buf[0xffff];
+        struct uwsgi_header uh;
+        char *body = NULL;
+        size_t body_len = 0;
+
+        int spool_fd;
+
+        char *task_path = NULL;
+
+        struct stat task_stat;
+
+        if (!PyArg_ParseTuple(args, "s:spooler_get_task", &task_path)) {
+                return NULL;
+        }
+
+        if (lstat(task_path, &task_stat)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        if (access(task_path, R_OK | W_OK)) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        spool_fd = open(task_path, O_RDWR);
+
+        if (spool_fd < 0) {
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        // check if the file is locked by another process
+        if (uwsgi_fcntl_is_locked(spool_fd)) {
+                uwsgi_protected_close(spool_fd);
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        // unlink() can destroy the lock !!!
+        if (access(task_path, R_OK | W_OK)) {
+                uwsgi_protected_close(spool_fd);
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        ssize_t rlen = uwsgi_protected_read(spool_fd, &uh, 4);
+
+        if (rlen != 4) {
+                uwsgi_protected_close(spool_fd);
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+#ifdef __BIG_ENDIAN__
+        uh.pktsize = uwsgi_swap16(uh.pktsize);
+#endif
+
+        if (uwsgi_protected_read(spool_fd, spool_buf, uh.pktsize) != uh.pktsize) {
+                uwsgi_protected_close(spool_fd);
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        // body available ?
+        if (task_stat.st_size > (uh.pktsize + 4)) {
+                body_len = task_stat.st_size - (uh.pktsize + 4);
+                body = uwsgi_malloc(body_len);
+                if ((size_t) uwsgi_protected_read(spool_fd, body, body_len) != body_len) {
+                        uwsgi_protected_close(spool_fd);
+                        free(body);
+                        Py_INCREF(Py_None);
+                        return Py_None;
+                }
+        }
+
+        PyObject *spool_dict = PyDict_New();
+
+        PyObject *value = PyString_FromString(task_path);
+        PyDict_SetItemString(spool_dict, "spooler_task_name", value);
+        Py_DECREF(value);
+
+        if (uwsgi_hooked_parse(spool_buf, uh.pktsize, uwsgi_python_add_item, spool_dict)) {
+                Py_XDECREF(spool_dict);
+                Py_INCREF(Py_None);
+                return Py_None;
+        }
+
+        if (body && body_len > 0) {
+                PyObject *value = PyString_FromStringAndSize(body, body_len);
+                PyDict_SetItemString(spool_dict, "body", value);
+                Py_DECREF(value);
+        }
+
+        return spool_dict;
+}
+
 
 PyObject *py_uwsgi_connect(PyObject * self, PyObject * args) {
 
@@ -2502,6 +2601,8 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
 	{"spooler_pids", py_uwsgi_spooler_pids, METH_VARARGS, ""},
+
+        {"spooler_get_task", py_uwsgi_spooler_get_task, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 
