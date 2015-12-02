@@ -2706,6 +2706,7 @@ struct uwsgi_server {
 	struct uwsgi_metric *metrics;
 	struct uwsgi_metric_collector *metric_collectors;
 	int has_metrics;
+	char *dynamic_metrics_dir;
 	char *metrics_dir;
 	int metrics_dir_restore;
 	uint64_t metrics_cnt;

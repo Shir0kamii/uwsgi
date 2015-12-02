@@ -582,6 +582,8 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"metric-dir", required_argument, 0, "export metrics as text files to the specified directory", uwsgi_opt_set_str, &uwsgi.metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metric-dir-restore", no_argument, 0, "restore last value taken from the metrics dir", uwsgi_opt_true, &uwsgi.metrics_dir_restore, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 	{"metrics-no-cores", no_argument, 0, "disable generation of cores-related metrics", uwsgi_opt_true, &uwsgi.metrics_no_cores, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"dynamic-metrics-dir", required_argument, 0, "enable dynamic metrics and specify in which directory they will be stored", uwsgi_opt_set_str, &uwsgi.dynamic_metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
+	{"dynamic-metric-dir", required_argument, 0, "enable dynamic metrics and specify in which directory they will be stored", uwsgi_opt_set_str, &uwsgi.dynamic_metrics_dir, UWSGI_OPT_METRICS|UWSGI_OPT_MASTER},
 
 	{"udp", required_argument, 0, "run the udp server on the specified address", uwsgi_opt_set_str, &uwsgi.udp_socket, UWSGI_OPT_MASTER},
 	{"stats", required_argument, 0, "enable the stats server on the specified address", uwsgi_opt_set_str, &uwsgi.stats, UWSGI_OPT_MASTER},
