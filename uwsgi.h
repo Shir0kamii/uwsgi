@@ -4782,6 +4782,9 @@ int64_t uwsgi_metric_getn(char *, size_t, char *, size_t);
 int uwsgi_metric_set_max(char *, char *, int64_t);
 int uwsgi_metric_set_min(char *, char *, int64_t);
 
+int uwsgi_dynamic_metric_write(char *, int64_t);
+int uwsgi_dynamic_metric_read(char *, int64_t *);
+
 struct uwsgi_metric_collector *uwsgi_register_metric_collector(char *, int64_t (*)(struct uwsgi_metric *));
 struct uwsgi_metric *uwsgi_register_metric(char *, char *, uint8_t, char *, void *, uint32_t, void *);
 

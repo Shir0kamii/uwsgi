@@ -717,6 +717,56 @@ int uwsgi_metric_set_min(char *name, char *oid, int64_t value) {
 	return 0;
 }
 
+/*
+ *	dynamic metrics
+ */
+
+int uwsgi_dynamic_metric_write(char *metric, int64_t value) {
+	char buffer[4096] = {0};
+	char *filename;
+	int fd;
+	int retval;
+
+	if (!uwsgi.dynamic_metrics_dir) return -1;
+
+	snprintf(buffer, 4095, "%lld", (long long int) value);
+
+	filename = uwsgi_concat3(uwsgi.dynamic_metrics_dir, "/", metric);
+
+	fd = open(filename, O_CREAT|O_TRUNC|O_WRONLY, S_IRUSR|S_IWUSR|S_IRGRP);
+	if (fd < 0) return -1;
+
+	retval = write(fd, buffer, strlen(buffer));
+	if (retval < 0) return -1;
+
+	close(fd);
+
+	return 0;
+}
+
+int uwsgi_dynamic_metric_read(char *metric, int64_t *value) {
+	char buffer[4096] = {0};
+	char *filename;
+	int fd;
+	int retval;
+
+	if (!uwsgi.dynamic_metrics_dir) return -1;
+
+	filename = uwsgi_concat3(uwsgi.dynamic_metrics_dir, "/", metric);
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) return -1;
+
+	retval = read(fd, buffer, 4095);
+	if (retval < 0) return -1;
+
+	close(fd);
+
+	*value = strtoll(buffer, NULL, 10);
+
+	return 0;
+}
+
 #define uwsgi_metric_name(f, n) ret = snprintf(buf, 4096, f, n); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
 #define uwsgi_metric_name2(f, n, n2) ret = snprintf(buf, 4096, f, n, n2); if (ret <= 1 || ret >= 4096) { uwsgi_log("unable to register metric name %s\n", f); exit(1);}
 
