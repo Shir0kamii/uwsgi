@@ -3276,13 +3276,19 @@ static PyMethodDef uwsgi_queue_methods[] = {
 PyObject *py_uwsgi_metric_inc(PyObject * self, PyObject * args) {
         char *key;
         int64_t value = 1;
+
         if (!PyArg_ParseTuple(args, "s|l:metric_inc", &key, &value)) return NULL;
 
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_inc(key, NULL, value)) {
+			int64_t metric_value = 0;
+			uwsgi_dynamic_metric_read(key, &metric_value);
+
+			if (uwsgi_dynamic_metric_write(key, metric_value + value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
@@ -3293,13 +3299,19 @@ PyObject *py_uwsgi_metric_inc(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_metric_dec(PyObject * self, PyObject * args) {
         char *key;
         int64_t value = 1;
+		
         if (!PyArg_ParseTuple(args, "s|l:metric_dec", &key, &value)) return NULL;
 
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_dec(key, NULL, value)) {
+			int64_t metric_value = 0;
+			uwsgi_dynamic_metric_read(key, &metric_value);
+
+			if (uwsgi_dynamic_metric_write(key, metric_value - value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
@@ -3310,13 +3322,19 @@ PyObject *py_uwsgi_metric_dec(PyObject * self, PyObject * args) {
 PyObject *py_uwsgi_metric_mul(PyObject * self, PyObject * args) {
         char *key;
         int64_t value = 1;
+
         if (!PyArg_ParseTuple(args, "s|l:metric_mul", &key, &value)) return NULL;
 
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_mul(key, NULL, value)) {
+			int64_t metric_value = 0;
+			uwsgi_dynamic_metric_read(key, &metric_value);
+
+			if (uwsgi_dynamic_metric_write(key, metric_value * value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
@@ -3331,9 +3349,14 @@ PyObject *py_uwsgi_metric_div(PyObject * self, PyObject * args) {
 
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_div(key, NULL, value)) {
+			int64_t metric_value = 0;
+			uwsgi_dynamic_metric_read(key, &metric_value);
+
+			if (uwsgi_dynamic_metric_write(key, metric_value / value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
@@ -3348,9 +3371,11 @@ PyObject *py_uwsgi_metric_set(PyObject * self, PyObject * args) {
         
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_set(key, NULL, value)) {
+			if (uwsgi_dynamic_metric_write(key, value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
@@ -3363,9 +3388,18 @@ PyObject *py_uwsgi_metric_get(PyObject * self, PyObject * args) {
         if (!PyArg_ParseTuple(args, "s:metric_get", &key)) return NULL;
 
         UWSGI_RELEASE_GIL
-        int64_t value = uwsgi_metric_get(key, NULL);
+		int64_t ret = 0;
+		struct uwsgi_metric *um = uwsgi_metric_find_by_name(key);
+
+		if (um) {
+			uwsgi_rlock(uwsgi.metrics_lock);
+			ret = *um->value;
+			uwsgi_rwunlock(uwsgi.metrics_lock);
+		}
+		else
+			uwsgi_dynamic_metric_read(key, &ret);
         UWSGI_GET_GIL
-        return PyLong_FromLongLong(value);
+        return PyLong_FromLongLong(ret);
 }
 
 PyObject *py_uwsgi_metric_set_max(PyObject * self, PyObject * args) {
@@ -3375,9 +3409,15 @@ PyObject *py_uwsgi_metric_set_max(PyObject * self, PyObject * args) {
 
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_set_max(key, NULL, value)) {
+			int64_t metric_value = 0;
+			uwsgi_dynamic_metric_read(key, &metric_value);
+
+			if (value > metric_value &&
+				uwsgi_dynamic_metric_write(key, value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
@@ -3392,9 +3432,15 @@ PyObject *py_uwsgi_metric_set_min(PyObject * self, PyObject * args) {
 
         UWSGI_RELEASE_GIL
         if (uwsgi_metric_set_min(key, NULL, value)) {
+			int64_t metric_value = 0;
+			uwsgi_dynamic_metric_read(key, &metric_value);
+
+			if (value < metric_value &&
+				uwsgi_dynamic_metric_write(key, value)) {
                 UWSGI_GET_GIL
                 Py_INCREF(Py_None);
                 return Py_None;
+			}
         }
         UWSGI_GET_GIL
         Py_INCREF(Py_True);
