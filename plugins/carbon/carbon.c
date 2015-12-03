@@ -391,6 +391,33 @@ metrics_loop:
 				if (!wok) goto clear;
 				um = um->next;
 			}
+
+			DIR *dynamic_metrics_dir;
+
+			dynamic_metrics_dir = opendir(uwsgi.dynamic_metrics_dir);
+			if (!dynamic_metrics_dir) {
+				uwsgi_error("opendir()");
+				goto clear;
+			}
+
+			struct dirent *file = readdir(dynamic_metrics_dir);
+			while (file) {
+				if (file->d_name[0] != '.') {
+					char *metric_name = file->d_name;
+					int64_t value;
+
+					if (!uwsgi_dynamic_metric_read(metric_name, &value)) {
+						wok = carbon_write(fd, "%s%s.%s.%.*s %llu %llu\n", u_carbon.root_node, u_carbon.hostname, u_carbon.id, strlen(metric_name), metric_name, (unsigned long long) value, (unsigned long long) now);
+						if (!wok) goto clear;
+					}
+				}
+
+				file = readdir(dynamic_metrics_dir);
+			}
+
+			uwsgi_log("opened dir\n");
+
+			closedir(dynamic_metrics_dir);
 		}
 
 		usl->healthy = 1;
