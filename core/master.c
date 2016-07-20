@@ -863,13 +863,8 @@ int master_loop(char **argv, char **environ) {
 				}
 				touched = uwsgi_check_touches(uwsgi.touch_chain_reload);
 				if (touched) {
-					if (uwsgi.status.chain_reloading == 0) {
-						uwsgi_log_verbose("*** %s has been touched... chain reload !!! ***\n", touched);
-						uwsgi.status.chain_reloading = 1;
-					}
-					else {
-						uwsgi_log_verbose("*** %s has been touched... but chain reload is already running ***\n", touched);
-					}
+						uwsgi_log_verbose("*** %s has been touched... ***\n", touched);
+                        uwsgi_chain_reload();
 				}
 
 				// be sure to run it as the last touch check
