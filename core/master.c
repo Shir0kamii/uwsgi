@@ -656,7 +656,7 @@ int master_loop(char **argv, char **environ) {
 		}
 
 		// check chain reload
-		uwsgi_master_check_chain();
+		uwsgi_master_check_chain_reload();
 
 		// check if some worker is taking too much to die...
 		uwsgi_master_check_mercy();
@@ -1078,8 +1078,8 @@ next:
 		uwsgi.respawn_delta = last_respawn.tv_sec;
 
 		// are we chain reloading it ?
-		if (uwsgi.status.chain_reloading == thewid) {
-			uwsgi.status.chain_reloading++;
+		if (uwsgi.status.chain_reloading_step == thewid) {
+			uwsgi.status.chain_reloading_step++;
 		}
 
 		// respawn the worker (if needed)
@@ -1104,9 +1104,9 @@ void uwsgi_reload_workers() {
 }
 
 void uwsgi_chain_reload() {
-	if (!uwsgi.status.chain_reloading) {
+	if (uwsgi.status.chain_reloading == NOT_CHAIN_RELOADING) {
 		uwsgi_log_verbose("chain reload starting...\n");
-		uwsgi.status.chain_reloading = 1;
+		uwsgi.status.chain_reloading = CHAIN_RELOADING_WORKERS;
 	}
 	else {
 		uwsgi_log_verbose("chain reload already running...\n");

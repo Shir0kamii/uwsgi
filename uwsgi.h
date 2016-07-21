@@ -1684,13 +1684,20 @@ struct uwsgi_stats_pusher_instance;
 
 struct uwsgi_offload_engine;
 
+enum uwsgi_chain_reloading_status {
+    NOT_CHAIN_RELOADING,
+    CHAIN_RELOADING_WORKERS,
+    CHAIN_RELOADING_FINISHED
+};
+
 // these are the possible states of an instance
 struct uwsgi_instance_status {
 	int gracefully_reloading;
 	int brutally_reloading;
 	int gracefully_destroying;
 	int brutally_destroying;
-	int chain_reloading;
+	enum uwsgi_chain_reloading_status chain_reloading;
+    int chain_reloading_step;
 	int workers_reloading;
 	int is_cheap;
 	int is_cleaning;
@@ -4629,7 +4636,7 @@ int uwsgi_master_check_daemons_death(int);
 void uwsgi_master_check_death(void);
 int uwsgi_master_check_reload(char **);
 void uwsgi_master_commit_status(void);
-void uwsgi_master_check_chain(void);
+void uwsgi_master_check_chain_reload(void);
 
 void uwsgi_master_fix_request_counters(void);
 int uwsgi_master_manage_events(int);

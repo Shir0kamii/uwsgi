@@ -37,40 +37,39 @@ int uwsgi_master_check_reload(char **argv) {
 	return 0;
 }
 
-// check for chain reload
-void uwsgi_master_check_chain() {
+static int uwsgi_master_check_chain() {
 	static time_t last_check = 0;
 
-	if (!uwsgi.status.chain_reloading) return;
+    if (!uwsgi.status.chain_reloading_step)
+        uwsgi.status.chain_reloading_step = 1;
 
 	// we need to ensure the previous worker (if alive) is accepting new requests
 	// before going on
-	if (uwsgi.status.chain_reloading > 1) {
-		struct uwsgi_worker *previous_worker = &uwsgi.workers[uwsgi.status.chain_reloading-1];
+	if (uwsgi.status.chain_reloading_step > 1) {
+		struct uwsgi_worker *previous_worker = &uwsgi.workers[uwsgi.status.chain_reloading_step-1];
 		// is the previous worker alive ?
 		if (previous_worker->pid > 0 && !previous_worker->cheaped) {
 			// the worker has been respawned but it is still not ready
 			if (previous_worker->accepting == 0) {
 				time_t now = uwsgi_now();
 				if (now != last_check) {
-					uwsgi_log_verbose("chain is still waiting for worker %d...\n", uwsgi.status.chain_reloading-1);
+					uwsgi_log_verbose("chain is still waiting for worker %d...\n", uwsgi.status.chain_reloading_step-1);
 					last_check = now;
 				}
-				return;
+				return 0;
 			}
 		}
 	}
 
 	// if all the processes are recycled, the chain is over
-	if (uwsgi.status.chain_reloading > uwsgi.numproc) {
-		uwsgi.status.chain_reloading = 0;
-                uwsgi_log_verbose("chain reloading complete\n");
-		return;
+	if (uwsgi.status.chain_reloading_step > uwsgi.numproc) {
+        uwsgi.status.chain_reloading_step = 0;
+		return 1;
 	}
 
 	uwsgi_block_signal(SIGHUP);
 	int i;
-	for(i=uwsgi.status.chain_reloading;i<=uwsgi.numproc;i++) {
+	for(i=uwsgi.status.chain_reloading_step;i<=uwsgi.numproc;i++) {
 		struct uwsgi_worker *uw = &uwsgi.workers[i];
 		if (uw->pid > 0 && !uw->cheaped && uw->accepting) {
 			// the worker could have been already cursed
@@ -81,10 +80,27 @@ void uwsgi_master_check_chain() {
 			break;
 		}
 		else {
-			uwsgi.status.chain_reloading++;
+			uwsgi.status.chain_reloading_step++;
 		}
         }
 	uwsgi_unblock_signal(SIGHUP);
+    return 0;
+}
+
+// check for chain reload
+void uwsgi_master_check_chain_reload() {
+    uwsgi_log("CHECKING: %d, %d\n", uwsgi.status.chain_reloading, uwsgi.status.chain_reloading_step);
+    if (uwsgi.status.chain_reloading == NOT_CHAIN_RELOADING) return;
+
+    if (uwsgi.status.chain_reloading == CHAIN_RELOADING_WORKERS &&
+            uwsgi_master_check_chain()) {
+		uwsgi.status.chain_reloading++;
+    }
+
+    if (uwsgi.status.chain_reloading == CHAIN_RELOADING_FINISHED) {
+        uwsgi.status.chain_reloading = NOT_CHAIN_RELOADING;
+        uwsgi_log_verbose("chain reloading complete\n");
+    }
 }
 
 
